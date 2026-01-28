@@ -13,6 +13,7 @@ import ProjectDetail from './pages/ProjectDetail';
 import ProjectInput from './pages/ProjectInput';
 import MASPage from './pages/MASPage';
 import RFIPage from './pages/RFIPage';
+import ProjectStandardsManagement from './pages/ProjectStandardsManagement';
 import { createOrUpdateUser } from './services/userService';
 import { Loader } from 'lucide-react';
 
@@ -138,6 +139,18 @@ function App() {
           element={
             user ? (
               <L4Dashboard />
+            ) : (
+              <Navigate to="/" replace />
+            )
+          } 
+        />
+
+        {/* Project Standards Management */}
+        <Route 
+          path="/project-standards" 
+          element={
+            user && userLevel === 'SUPER_ADMIN' ? (
+              <ProjectStandardsManagement />
             ) : (
               <Navigate to="/" replace />
             )

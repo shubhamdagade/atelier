@@ -1,10 +1,12 @@
 import { useState, useCallback, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
+import GoogleMapComponent from '../components/GoogleMapComponent';
 import { Plus, Trash2, Edit2, MapPin, Copy } from 'lucide-react';
 
 export default function ProjectInput() {
   const { projectId } = useParams();
+  const navigate = useNavigate();
   const isEditing = !!projectId;
 
   const [projectData, setProjectData] = useState({
@@ -213,6 +215,12 @@ export default function ProjectInput() {
 
   const handleSubmit = async () => {
     try {
+      // Validate that project has a name
+      if (!projectData.name.trim()) {
+        setError('Project name is required');
+        return;
+      }
+
       const url = isEditing ? `/api/projects/${projectId}` : '/api/projects';
       const method = isEditing ? 'PATCH' : 'POST';
 
@@ -222,12 +230,20 @@ export default function ProjectInput() {
         body: JSON.stringify(projectData),
       });
 
-      if (response.ok) {
-        alert(`Project ${isEditing ? 'updated' : 'created'} successfully!`);
-        // Redirect to L1 dashboard or project list
+      if (!response.ok) {
+        const errorData = await response.json();
+        setError(errorData.error || 'Failed to save project');
+        console.error('Failed to save project:', errorData);
+        return;
       }
+
+      const result = await response.json();
+      alert(`Project ${isEditing ? 'updated' : 'created'} successfully!`);
+      
+      // Redirect to L1 dashboard after successful creation
+      navigate('/l1-dashboard');
     } catch (err) {
-      setError('Failed to save project');
+      setError('Failed to save project: ' + err.message);
       console.error(err);
     }
   };
@@ -252,7 +268,7 @@ export default function ProjectInput() {
           </h1>
 
           {error && (
-            <div className="mb-4 p-4 bg-red-100 text-red-700 rounded-lg">{error}</div>
+            <div className="mb-4 p-4 bg-lodha-sand border-2 border-lodha-gold text-lodha-black rounded-lg">{error}</div>
           )}
 
           {/* Project Basic Info */}
@@ -324,9 +340,22 @@ export default function ProjectInput() {
               </button>
 
               {showMap && (
-                <div className="w-full h-96 bg-gray-200 rounded-lg flex items-center justify-center">
-                  <p className="text-gray-500">Google Map iframe would go here</p>
-                </div>
+                <GoogleMapComponent
+                  latitude={projectData.latitude}
+                  longitude={projectData.longitude}
+                  location={projectData.location}
+                  onLocationSelect={(address, lat, lng) => {
+                    setProjectData(prev => ({
+                      ...prev,
+                      location: address,
+                      latitude: lat,
+                      longitude: lng,
+                    }));
+                    autoSaveField('location', address);
+                    autoSaveField('latitude', lat);
+                    autoSaveField('longitude', lng);
+                  }}
+                />
               )}
             </div>
           </div>
@@ -375,7 +404,7 @@ export default function ProjectInput() {
             </button>
             <button
               onClick={() => window.history.back()}
-              className="px-6 py-3 bg-gray-300 text-gray-700 font-jost font-semibold rounded-lg hover:bg-gray-400"
+              className="px-6 py-3 bg-lodha-sand text-lodha-black font-jost font-semibold rounded-lg hover:bg-lodha-sand/80 border border-lodha-gold"
             >
               Cancel
             </button>
@@ -418,7 +447,7 @@ function BuildingSection({
         <h3 className="heading-tertiary">Building {buildingIndex + 1}</h3>
         <button
           onClick={() => onDelete(building.id)}
-          className="text-red-600 hover:text-red-700"
+          className="text-lodha-gold hover:text-lodha-deep"
         >
           <Trash2 className="w-5 h-5" />
         </button>
@@ -503,7 +532,7 @@ function BuildingSection({
 
       {/* Twin Building Option */}
       {buildingIndex > 0 && (
-        <div className="mb-4 p-3 bg-blue-50 rounded border border-blue-200">
+        <div className="mb-4 p-3 bg-lodha-sand rounded border border-lodha-gold">
           <label className="flex items-center gap-2 font-jost">
             <input
               type="checkbox"
@@ -531,7 +560,7 @@ function BuildingSection({
           {buildingIndex > 0 && (
             <button
               onClick={() => onCopyBuilding(allBuildings[buildingIndex - 1].id)}
-              className="w-full mt-2 flex items-center justify-center gap-2 px-3 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+              className="w-full mt-2 flex items-center justify-center gap-2 px-3 py-2 bg-lodha-gold text-white rounded hover:bg-lodha-deep"
             >
               <Copy className="w-4 h-4" />
               Copy from previous building
@@ -593,7 +622,7 @@ function FloorSection({
         {floorIndex > 0 && (
           <button
             onClick={() => onCopyFloor(buildingId, allFloors[floorIndex - 1].id)}
-            className="flex items-center gap-1 text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200"
+            className="flex items-center gap-1 text-xs px-2 py-1 bg-lodha-sand text-lodha-black rounded hover:bg-lodha-sand/80 border border-lodha-gold"
           >
             <Copy className="w-3 h-3" />
             Copy prev
@@ -639,7 +668,7 @@ function FlatRow({
   onDelete,
 }) {
   return (
-    <div className="flex gap-2 items-center bg-gray-50 p-2 rounded text-sm">
+    <div className="flex gap-2 items-center bg-lodha-sand p-2 rounded text-sm border border-lodha-grey/20">
       <select
         value={flat.type}
         onChange={e =>onUpdate(buildingId, floorId, flatId, { type: e.target.value })}
@@ -672,7 +701,7 @@ function FlatRow({
 
       <button
         onClick={() => onDelete(buildingId, floorId, flatId)}
-        className="px-2 py-1 text-red-600 hover:bg-red-100 rounded"
+        className="px-2 py-1 text-lodha-gold hover:bg-lodha-sand rounded"
       >
         <Trash2 className="w-4 h-4" />
       </button>

@@ -1,0 +1,97 @@
+# Cloud Build Configuration for Atelier MEP Portal
+# Automatically build and deploy to Cloud Run on every push to main branch
+
+steps:
+  # Step 1: Build Docker image and tag with commit SHA
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'build'
+    args:
+      - 'build'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/atelier/atelier-mep:$SHORT_SHA'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/atelier/atelier-mep:latest'
+      - '-f'
+      - 'Dockerfile'
+      - '.'
+    waitFor: ['-']
+
+  # Step 2: Push to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-sha'
+    args:
+      - 'push'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/atelier/atelier-mep:$SHORT_SHA'
+    waitFor: ['build']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'push-latest'
+    args:
+      - 'push'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/atelier/atelier-mep:latest'
+    waitFor: ['build']
+
+  # Step 3: Deploy to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'deploy'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'atelier-mep'
+      - '--image=us-central1-docker.pkg.dev/$PROJECT_ID/atelier/atelier-mep:$SHORT_SHA'
+      - '--region=us-central1'
+      - '--platform=managed'
+      - '--allow-unauthenticated'
+      - '--port=8080'
+      - '--memory=512Mi'
+      - '--cpu=1'
+      - '--timeout=60'
+      - '--max-instances=10'
+      - '--min-instances=1'
+      - '--service-account=${_CLOUD_RUN_SA}@iam.gserviceaccount.com'
+      - '--vpc-connector=atelier-vpc'
+      - '--vpc-egress=all-traffic'
+      - '--set-env-vars=NODE_ENV=production,PORT=8080'
+      - '--update-secrets=FIREBASE_ADMIN_SDK=firebase-admin-sdk:latest,DB_HOST=db-connection-name:latest,DB_USER=db-user:latest,DB_PASSWORD=db-password:latest,DB_NAME=db-name:latest'
+      - '--labels=app=atelier,environment=production,commit=$SHORT_SHA'
+      - '--no-traffic'
+    waitFor: ['push-latest']
+
+  # Step 4: Route 100% traffic to new revision
+  - name: 'gcr.io/cloud-builders/gcloud'
+    id: 'traffic'
+    args:
+      - 'run'
+      - 'services'
+      - 'update-traffic'
+      - 'atelier-mep'
+      - '--to-revisions=LATEST=100'
+      - '--region=us-central1'
+    waitFor: ['deploy']
+
+# Store image in Artifact Registry
+images:
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/atelier/atelier-mep:$SHORT_SHA'
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/atelier/atelier-mep:latest'
+
+# Build configuration
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'N1_HIGHCPU_8'
+
+# Substitutions for custom values
+substitutions:
+  _CLOUD_RUN_SA: 'cloud-run-service'  # Change to your service account name
+
+# Build timeout
+timeout: '1800s'
+
+# Trigger only on main branch
+onFailure:
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'logging'
+      - 'write'
+      - 'atelier-deployment'
+      - 'Build failed for $SHORT_SHA'
+      - '--severity=ERROR'

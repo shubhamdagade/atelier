@@ -54,7 +54,7 @@ export default function MASPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700 mb-6">
+        <div className="bg-lodha-sand border border-lodha-gold rounded-lg p-4 text-lodha-black mb-6">
           {error}
         </div>
       )}
@@ -83,8 +83,8 @@ export default function MASPage() {
                     <td className="px-6 py-4">
                       <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
                         item.status === 'pending' 
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-green-100 text-green-800'
+                          ? 'bg-lodha-sand text-lodha-black border border-lodha-gold/50'
+                          : 'bg-lodha-gold/20 text-lodha-black border border-lodha-gold'
                       }`}>
                         {item.status}
                       </span>

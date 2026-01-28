@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import SuperAdminLayout from '../components/SuperAdminLayout';
-import { Users, Shield, TrendingUp, Settings } from 'lucide-react';
+import { Users, Shield, TrendingUp, Settings, Database } from 'lucide-react';
 
 export default function SuperAdminDashboard() {
   const navigate = useNavigate();
@@ -11,7 +11,9 @@ export default function SuperAdminDashboard() {
       subtitle: 'Admin - Project Allocation',
       description: 'View and manage all projects. Assign leads to projects.',
       icon: Shield,
-      color: 'from-red-500 to-red-600',
+      color: 'from-lodha-gold to-lodha-deep',
+      textColor: 'text-lodha-black',
+      borderColor: 'border-lodha-gold',
       route: '/l1-dashboard',
       access: 'Full system access',
     },
@@ -20,7 +22,9 @@ export default function SuperAdminDashboard() {
       subtitle: 'Lead - Execution & Tracking',
       description: 'View assigned projects and track execution. Handle MAS and RFI approvals.',
       icon: TrendingUp,
-      color: 'from-blue-500 to-blue-600',
+      color: 'from-lodha-sand to-lodha-sand/80',
+      textColor: 'text-lodha-black',
+      borderColor: 'border-lodha-gold/50',
       route: '/l2-dashboard',
       access: 'Project tracking',
     },
@@ -29,7 +33,9 @@ export default function SuperAdminDashboard() {
       subtitle: 'Supervisor - Limited Access',
       description: 'View project progress with limited edit capabilities. Monitor KPIs.',
       icon: Users,
-      color: 'from-green-500 to-green-600',
+      color: 'from-lodha-sand/90 to-lodha-sand/70',
+      textColor: 'text-lodha-black',
+      borderColor: 'border-lodha-gold/30',
       route: '/l3-dashboard',
       access: 'Read-only dashboard',
     },
@@ -38,9 +44,22 @@ export default function SuperAdminDashboard() {
       subtitle: 'Team Member - View Only',
       description: 'View assigned projects and basic information. No editing capabilities.',
       icon: Settings,
-      color: 'from-yellow-500 to-yellow-600',
+      color: 'from-lodha-sand/70 to-lodha-sand/50',
+      textColor: 'text-lodha-black/80',
+      borderColor: 'border-lodha-gold/20',
       route: '/l4-dashboard',
       access: 'View-only access',
+    },
+    {
+      title: 'Project Standards',
+      subtitle: 'Manage Dropdown Options',
+      description: 'Add, edit, and manage application types, residential types, and flat types.',
+      icon: Database,
+      color: 'from-lodha-gold/30 to-lodha-gold/20',
+      textColor: 'text-lodha-black',
+      borderColor: 'border-lodha-gold',
+      route: '/project-standards',
+      access: 'Configuration',
     },
   ];
 
@@ -49,25 +68,25 @@ export default function SuperAdminDashboard() {
     return (
       <div
         onClick={() => navigate(dashboard.route)}
-        className={`bg-gradient-to-br ${dashboard.color} rounded-lg p-8 text-white shadow-lg hover:shadow-2xl transform hover:scale-105 transition-all duration-200 cursor-pointer`}
+        className={`bg-gradient-to-br ${dashboard.color} rounded-lg p-8 ${dashboard.textColor} shadow-lg hover:shadow-2xl transform hover:scale-105 transition-all duration-200 cursor-pointer border-2 ${dashboard.borderColor}`}
       >
         <div className="flex items-start justify-between mb-6">
           <div className="flex-1">
             <h3 className="text-2xl font-garamond font-bold mb-1">
               {dashboard.title}
             </h3>
-            <p className="text-white/80 font-jost text-sm mb-3">
+            <p className="opacity-80 font-jost text-sm mb-3">
               {dashboard.subtitle}
             </p>
-            <p className="text-white/70 font-jost text-sm leading-relaxed">
+            <p className="opacity-70 font-jost text-sm leading-relaxed">
               {dashboard.description}
             </p>
           </div>
-          <Icon className="w-12 h-12 text-white/60 flex-shrink-0 ml-4" />
+          <Icon className="w-12 h-12 opacity-60 flex-shrink-0 ml-4" />
         </div>
 
-        <div className="pt-4 border-t border-white/20">
-          <span className="inline-block px-3 py-1 bg-white/20 text-white/90 text-xs font-jost font-semibold rounded-full">
+        <div className="pt-4 border-t opacity-20">
+          <span className="inline-block px-3 py-1 bg-lodha-black/10 backdrop-blur-sm text-xs font-jost font-semibold rounded-full">
             {dashboard.access}
           </span>
         </div>
@@ -107,6 +126,10 @@ export default function SuperAdminDashboard() {
               </li>
               <li className="flex items-start gap-3">
                 <span className="text-lodha-gold font-bold mt-1">•</span>
+                <span>Manage project standards (dropdown options)</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span className="text-lodha-gold font-bold mt-1">•</span>
                 <span>Test features across all permission levels</span>
               </li>
               <li className="flex items-start gap-3">
@@ -126,25 +149,25 @@ export default function SuperAdminDashboard() {
             <div className="space-y-3 text-sm font-jost">
               <div className="flex justify-between items-center">
                 <span className="text-lodha-grey">L1 - Admin</span>
-                <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full font-semibold">
+                <span className="px-3 py-1 bg-lodha-gold/20 text-lodha-black rounded-full font-semibold border border-lodha-gold">
                   Full Access
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-lodha-grey">L2 - Lead</span>
-                <span className="px-3 py-1 bg-blue-100 text-blue-700 rounded-full font-semibold">
+                <span className="px-3 py-1 bg-lodha-sand text-lodha-black rounded-full font-semibold border border-lodha-gold/50">
                   Tracking
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-lodha-grey">L3 - Supervisor</span>
-                <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full font-semibold">
+                <span className="px-3 py-1 bg-lodha-sand text-lodha-black rounded-full font-semibold border border-lodha-gold/30">
                   Limited
                 </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-lodha-grey">L4 - Member</span>
-                <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full font-semibold">
+                <span className="px-3 py-1 bg-lodha-sand/50 text-lodha-black/70 rounded-full font-semibold border border-lodha-gold/20">
                   View Only
                 </span>
               </div>

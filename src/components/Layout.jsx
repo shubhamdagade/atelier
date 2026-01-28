@@ -100,7 +100,7 @@ export default function Layout({ children }) {
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setIsSidebarOpen(true)}
-              className="lg:hidden p-1 rounded-md hover:bg-gray-100"
+              className="lg:hidden p-1 rounded-md hover:bg-lodha-sand"
             >
               <Menu className="w-6 h-6 text-lodha-grey" />
             </button>
@@ -130,7 +130,7 @@ export default function Layout({ children }) {
       {/* Mobile Overlay */}
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black bg-opacity-50 lg:hidden z-40"
+          className="fixed inset-0 bg-lodha-black bg-opacity-30 lg:hidden z-40"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}

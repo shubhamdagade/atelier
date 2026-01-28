@@ -1,16 +1,307 @@
 import express from 'express';
 import cors from 'cors';
+import admin from 'firebase-admin';
 import { query } from './db.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 const app = express();
-const port = process.env.PORT || 3001;
+const port = process.env.PORT || 8080;
+
+// Get __dirname equivalent in ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Initialize Firebase Admin SDK
+// In production, use FIREBASE_ADMIN_SDK environment variable (JSON string)
+// In development, use service account file if available
+let firebaseAdmin = null;
+try {
+  let adminConfig;
+  
+  if (process.env.FIREBASE_ADMIN_SDK) {
+    // Production: Parse from environment variable
+    adminConfig = JSON.parse(process.env.FIREBASE_ADMIN_SDK);
+  } else if (process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    // Development: Use service account file
+    const fs = await import('fs');
+    const credPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    adminConfig = JSON.parse(fs.readFileSync(credPath, 'utf8'));
+  } else {
+    console.warn('⚠️  Firebase Admin SDK not configured. Auth middleware will be disabled.');
+  }
+  
+  if (adminConfig) {
+    admin.initializeApp({
+      credential: admin.credential.cert(adminConfig),
+    });
+    firebaseAdmin = admin;
+    console.log('✅ Firebase Admin SDK initialized');
+  }
+} catch (error) {
+  console.warn('⚠️  Failed to initialize Firebase Admin SDK:', error.message);
+}
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
+// Serve static files (frontend)
+app.use(express.static(path.join(__dirname, '../public')));
+
+// ============================================================================
+// Authentication Middleware
+// ============================================================================
+
+/**
+ * Verify Firebase ID token and attach user info to request
+ * Attached: req.user = { uid, email, userLevel, claims }
+ */
+const verifyToken = async (req, res, next) => {
+  // Skip auth for health check
+  if (req.path === '/api/health') {
+    return next();
+  }
+
+  // Get token from Authorization header
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'No token provided. Send Authorization: Bearer <token>'
+    });
+  }
+
+  const token = authHeader.substring(7); // Remove "Bearer " prefix
+
+  try {
+    // Verify token with Firebase Admin SDK
+    if (!firebaseAdmin) {
+      return res.status(500).json({
+        error: 'Server Error',
+        message: 'Firebase Admin SDK not initialized'
+      });
+    }
+
+    const decodedToken = await firebaseAdmin.auth().verifyIdToken(token);
+    
+    // Fetch user from database to get user level
+    const userResult = await query(
+      'SELECT id, email, user_level FROM users WHERE email = $1',
+      [decodedToken.email]
+    );
+
+    if (userResult.rows.length === 0) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'User not found in database. Contact administrator.'
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    // Attach user info to request
+    req.user = {
+      uid: decodedToken.uid,
+      email: decodedToken.email,
+      userId: user.id,
+      userLevel: user.user_level,
+      isAdmin: user.user_level === 'SUPER_ADMIN',
+      isL1: user.user_level === 'L1',
+      isL2: user.user_level === 'L2',
+      isL3: user.user_level === 'L3',
+      isL4: user.user_level === 'L4',
+      ...decodedToken.custom_claims || {}
+    };
+
+    next();
+  } catch (error) {
+    console.error('Token verification error:', error.message);
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'Invalid or expired token'
+    });
+  }
+};
+
+/**
+ * Role-based access control
+ * Usage: app.get('/api/admin-only', requireRole('SUPER_ADMIN'), handler)
+ */
+const requireRole = (...allowedRoles) => {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({
+        error: 'Unauthorized',
+        message: 'User not authenticated'
+      });
+    }
+
+    const userLevel = req.user.userLevel;
+    if (!allowedRoles.includes(userLevel)) {
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: `This action requires one of: ${allowedRoles.join(', ')}. Your level: ${userLevel}`
+      });
+    }
+
+    next();
+  };
+};
+
+// ============================================================================
+// Routes
+// ============================================================================
+
+// Public health check (no auth required)
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// Auth sync endpoint (public, but validates Firebase token in request)
+app.post('/api/auth/sync', verifyToken, async (req, res) => {
+
 // Super Admin Email
 const SUPER_ADMIN_EMAIL = 'lodhaatelier@gmail.com';
+
+// Initialize database tables on server start
+async function initializeDatabase() {
+  try {
+    // Create users table if it doesn't exist
+    await query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        full_name VARCHAR(255) NOT NULL,
+        role VARCHAR(50) NOT NULL DEFAULT 'user',
+        user_level VARCHAR(2) NOT NULL DEFAULT 'L4',
+        last_login TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✓ users table initialized');
+
+    // Create projects table if it doesn't exist
+    await query(`
+      CREATE TABLE IF NOT EXISTS projects (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        status VARCHAR(50) NOT NULL DEFAULT 'Concept',
+        lifecycle_stage VARCHAR(50) NOT NULL DEFAULT 'Concept',
+        completion_percentage INTEGER NOT NULL DEFAULT 0,
+        floors_completed INTEGER NOT NULL DEFAULT 0,
+        total_floors INTEGER NOT NULL DEFAULT 0,
+        mep_status VARCHAR(50) NOT NULL DEFAULT 'pending',
+        material_stock_percentage INTEGER NOT NULL DEFAULT 0,
+        assigned_lead_id INTEGER REFERENCES users(id),
+        start_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        target_completion_date DATE NOT NULL DEFAULT CURRENT_DATE + INTERVAL '12 months',
+        is_archived BOOLEAN DEFAULT FALSE,
+        archived_at TIMESTAMP WITH TIME ZONE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✓ projects table initialized');
+
+    // Create buildings table if it doesn't exist
+    await query(`
+      CREATE TABLE IF NOT EXISTS buildings (
+        id SERIAL PRIMARY KEY,
+        project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        name VARCHAR(255) NOT NULL,
+        application_type VARCHAR(100) NOT NULL,
+        location_latitude DECIMAL(10, 8),
+        location_longitude DECIMAL(11, 8),
+        residential_type VARCHAR(100),
+        villa_type VARCHAR(100),
+        villa_count INTEGER,
+        twin_of_building_id INTEGER REFERENCES buildings(id),
+        is_twin BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✓ buildings table initialized');
+
+    // Create floors table if it doesn't exist
+    await query(`
+      CREATE TABLE IF NOT EXISTS floors (
+        id SERIAL PRIMARY KEY,
+        building_id INTEGER NOT NULL REFERENCES buildings(id) ON DELETE CASCADE,
+        floor_number INTEGER NOT NULL,
+        floor_name VARCHAR(100),
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✓ floors table initialized');
+
+    // Create flats table if it doesn't exist
+    await query(`
+      CREATE TABLE IF NOT EXISTS flats (
+        id SERIAL PRIMARY KEY,
+        floor_id INTEGER NOT NULL REFERENCES floors(id) ON DELETE CASCADE,
+        flat_type VARCHAR(100) NOT NULL,
+        area_sqft DECIMAL(10, 2),
+        number_of_flats INTEGER NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✓ flats table initialized');
+
+    // Create project_standards table if it doesn't exist
+    await query(`
+      CREATE TABLE IF NOT EXISTS project_standards (
+        id SERIAL PRIMARY KEY,
+        category VARCHAR(100) NOT NULL,
+        value VARCHAR(255) NOT NULL,
+        description TEXT,
+        is_active BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(category, value)
+      )
+    `);
+    console.log('✓ project_standards table initialized');
+
+    // Create material_approval_sheets table if it doesn't exist
+    await query(`
+      CREATE TABLE IF NOT EXISTS material_approval_sheets (
+        id SERIAL PRIMARY KEY,
+        project_id INTEGER NOT NULL REFERENCES projects(id),
+        material_name VARCHAR(255) NOT NULL,
+        quantity INTEGER NOT NULL,
+        status VARCHAR(50) NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✓ material_approval_sheets table initialized');
+
+    // Create requests_for_information table if it doesn't exist
+    await query(`
+      CREATE TABLE IF NOT EXISTS requests_for_information (
+        id SERIAL PRIMARY KEY,
+        project_id INTEGER NOT NULL REFERENCES projects(id),
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        raised_by_id INTEGER NOT NULL REFERENCES users(id),
+        status VARCHAR(50) NOT NULL DEFAULT 'pending',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    console.log('✓ requests_for_information table initialized');
+
+    console.log('✅ All database tables initialized');
+  } catch (error) {
+    console.error('Error initializing database:', error.message);
+  }
+}
 
 // Helper function to get user level
 async function getUserLevel(email) {
@@ -33,9 +324,9 @@ async function getUserLevel(email) {
 }
 
 // Projects endpoint - filters based on user level
-app.get('/api/projects', async (req, res) => {
+app.get('/api/projects', verifyToken, async (req, res) => {
   try {
-    const userEmail = req.query.userEmail;
+    const userEmail = req.user.email;
     
     let query_text = `
       SELECT p.*, u.full_name as assigned_lead_name
@@ -359,11 +650,112 @@ app.get('/api/project-standards', async (req, res) => {
   }
 });
 
-// Create or update project with full hierarchy
-app.post('/api/projects/with-hierarchy', async (req, res) => {
+// Get all standards (with all details) - for admin management
+app.get('/api/project-standards-all', async (req, res) => {
+  try {
+    const result = await query(
+      'SELECT id, category, value, description, is_active FROM project_standards ORDER BY category, value'
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching all standards:', error.message, error.code);
+    res.status(500).json({ error: 'Failed to fetch standards', details: error.message });
+  }
+});
+
+// Add new standard
+app.post('/api/project-standards', async (req, res) => {
+  const { category, value, description } = req.body;
+  
+  try {
+    const result = await query(
+      'INSERT INTO project_standards (category, value, description, is_active) VALUES ($1, $2, $3, true) RETURNING *',
+      [category, value, description]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Error adding standard:', error);
+    // PostgreSQL unique constraint violation error code is 23505
+    if (error.code === '23505') {
+      res.status(400).json({ error: 'This option already exists in this category' });
+    } else {
+      res.status(500).json({ error: 'Failed to add standard', details: error.message });
+    }
+  }
+});
+
+// Update standard
+app.patch('/api/project-standards/:id', async (req, res) => {
+  const { id } = req.params;
+  const { value, description, is_active } = req.body;
+  
+  try {
+    let updateQuery = 'UPDATE project_standards SET ';
+    const params = [];
+    const updates = [];
+    
+    if (value !== undefined) {
+      updates.push(`value = $${params.length + 1}`);
+      params.push(value);
+    }
+    if (description !== undefined) {
+      updates.push(`description = $${params.length + 1}`);
+      params.push(description);
+    }
+    if (is_active !== undefined) {
+      updates.push(`is_active = $${params.length + 1}`);
+      params.push(is_active);
+    }
+    
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+    
+    updateQuery += updates.join(', ') + ` WHERE id = $${params.length + 1} RETURNING *`;
+    params.push(id);
+    
+    const result = await query(updateQuery, params);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Standard not found' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating standard:', error.message, error.code);
+    res.status(500).json({ error: 'Failed to update standard', details: error.message });
+  }
+});
+
+// Delete standard
+// Delete standard
+app.delete('/api/project-standards/:id', async (req, res) => {
+  const { id } = req.params;
+  
+  try {
+    const result = await query('DELETE FROM project_standards WHERE id = $1 RETURNING id', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Standard not found' });
+    }
+    
+    res.json({ success: true, id: result.rows[0].id });
+  } catch (error) {
+    console.error('Error deleting standard:', error.message, error.code);
+    res.status(500).json({ error: 'Failed to delete standard', details: error.message });
+  }
+});
+
+// Create new project
+app.post('/api/projects', async (req, res) => {
   const { name, location, latitude, longitude, buildings, userEmail } = req.body;
 
   try {
+    // Validate required fields
+    if (!name) {
+      return res.status(400).json({ error: 'Project name is required' });
+    }
+
     // Create project
     const projectResult = await query(
       `INSERT INTO projects (name, description, lifecycle_stage, start_date, target_completion_date)
@@ -409,8 +801,9 @@ app.post('/api/projects/with-hierarchy', async (req, res) => {
 
     res.json({ id: projectId, message: 'Project created successfully' });
   } catch (error) {
-    console.error('Error creating project:', error);
-    res.status(500).json({ error: 'Failed to create project' });
+    console.error('Error creating project:', error.message);
+    console.error('Full error:', error);
+    res.status(500).json({ error: 'Failed to create project', details: error.message });
   }
 });
 
@@ -487,7 +880,10 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-app.listen(port, () => {
+app.listen(port, async () => {
   console.log(`Server running on port ${port}`);
   console.log(`Health check available at http://localhost:${port}/api/health`);
+  
+  // Initialize database tables
+  await initializeDatabase();
 });

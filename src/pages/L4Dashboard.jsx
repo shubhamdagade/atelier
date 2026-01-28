@@ -29,12 +29,12 @@ export default function L4Dashboard() {
 
   const getStageColor = (stage) => {
     const colors = {
-      'Concept': 'bg-purple-100 text-purple-800',
-      'DD': 'bg-blue-100 text-blue-800',
-      'Tender': 'bg-yellow-100 text-yellow-800',
-      'VFC': 'bg-green-100 text-green-800',
+      'Concept': 'bg-lodha-sand text-lodha-black border border-lodha-gold/30',
+      'DD': 'bg-lodha-sand text-lodha-black border border-lodha-gold/50',
+      'Tender': 'bg-lodha-sand text-lodha-black border border-lodha-gold/70',
+      'VFC': 'bg-lodha-gold/20 text-lodha-black border border-lodha-gold',
     };
-    return colors[stage] || 'bg-gray-100 text-gray-800';
+    return colors[stage] || 'bg-lodha-sand text-lodha-black border border-lodha-gold/20';
   };
 
   if (loading) {

@@ -11,13 +11,20 @@ export default function L1ProjectTable({ userEmail }) {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchProjects();
+    if (userEmail) {
+      fetchProjects();
+    }
     fetchL2Users();
-  }, []);
+  }, [userEmail]);
 
   const fetchProjects = async () => {
     try {
-      const response = await fetch(`/api/projects?userEmail=${userEmail}`);
+      // Build URL with userEmail only if it's provided
+      const url = userEmail 
+        ? `/api/projects?userEmail=${encodeURIComponent(userEmail)}`
+        : '/api/projects';
+      
+      const response = await fetch(url);
       if (!response.ok) throw new Error('Failed to fetch projects');
       const data = await response.json();
       setProjects(data);
