@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { Eye, MapPin, Clock } from 'lucide-react';
+import { apiFetchJson } from '../lib/api';
 
 export default function L4Dashboard() {
   const [projects, setProjects] = useState([]);
@@ -10,11 +11,8 @@ export default function L4Dashboard() {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const response = await fetch(`/api/projects?userEmail=${userEmail}`);
-        if (response.ok) {
-          const data = await response.json();
-          setProjects(data);
-        }
+        const data = await apiFetchJson(`/api/projects?userEmail=${userEmail}`);
+        setProjects(data);
       } catch (error) {
         console.error('Error fetching projects:', error);
       } finally {

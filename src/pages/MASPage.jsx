@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Loader } from 'lucide-react';
 import Layout from '../components/Layout';
 import { auth } from '../lib/firebase';
+import { apiFetchJson } from '../lib/api';
 
 export default function MASPage() {
   const [items, setItems] = useState([]);
@@ -23,11 +24,8 @@ export default function MASPage() {
     try {
       setLoading(true);
       // Fetch all MAS items - in a real app, this would be filtered by user's projects
-      const response = await fetch('/api/mas/project/1'); // For now, fetch from project 1
-      if (response.ok) {
-        const data = await response.json();
-        setItems(data);
-      }
+      const data = await apiFetchJson('/api/mas/project/1'); // For now, fetch from project 1
+      setItems(data);
     } catch (err) {
       console.error('Error fetching MAS:', err);
       setError('Failed to load Material Approval Sheets');

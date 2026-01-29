@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Loader, Archive } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { apiFetchJson } from '../lib/api';
 
 export default function ProjectStatusBoard({ userEmail }) {
   const [projects, setProjects] = useState([]);
@@ -18,9 +19,7 @@ export default function ProjectStatusBoard({ userEmail }) {
 
   const fetchProjects = async () => {
     try {
-      const response = await fetch(`/api/projects?userEmail=${userEmail}`);
-      if (!response.ok) throw new Error('Failed to fetch projects');
-      const data = await response.json();
+      const data = await apiFetchJson(`/api/projects?userEmail=${userEmail}`);
       setProjects(data);
       setError(null);
     } catch (err) {
@@ -33,9 +32,7 @@ export default function ProjectStatusBoard({ userEmail }) {
 
   const fetchArchivedProjects = async () => {
     try {
-      const response = await fetch('/api/projects/archive/list');
-      if (!response.ok) throw new Error('Failed to fetch archived projects');
-      const data = await response.json();
+      const data = await apiFetchJson('/api/projects/archive/list');
       setArchivedProjects(data);
     } catch (err) {
       console.error('Error fetching archived projects:', err);

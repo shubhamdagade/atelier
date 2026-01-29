@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ChevronDown, Loader } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { apiFetchJson, apiFetch } from '../lib/api';
 
 export default function L1ProjectTable({ userEmail }) {
   const [projects, setProjects] = useState([]);
@@ -24,9 +25,7 @@ export default function L1ProjectTable({ userEmail }) {
         ? `/api/projects?userEmail=${encodeURIComponent(userEmail)}`
         : '/api/projects';
       
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Failed to fetch projects');
-      const data = await response.json();
+      const data = await apiFetchJson(url);
       setProjects(data);
       setError(null);
     } catch (err) {
@@ -39,9 +38,7 @@ export default function L1ProjectTable({ userEmail }) {
 
   const fetchL2Users = async () => {
     try {
-      const response = await fetch('/api/users/level/L2');
-      if (!response.ok) throw new Error('Failed to fetch users');
-      const data = await response.json();
+      const data = await apiFetchJson('/api/users/level/L2');
       setUsers(data);
     } catch (err) {
       console.error('Error fetching L2 users:', err);

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { FileText, HelpCircle, Archive, Loader } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { apiFetch } from '../lib/api';
 
 export default function L2TopStats({ userEmail, projectId }) {
   const [masCount, setMasCount] = useState(0);
@@ -18,8 +19,8 @@ export default function L2TopStats({ userEmail, projectId }) {
       const params = projectId ? `?projectId=${projectId}&userEmail=${userEmail}` : `?userEmail=${userEmail}`;
       
       const [masRes, rfiRes] = await Promise.all([
-        fetch(`/api/mas/pending-count${params}`),
-        fetch(`/api/rfi/pending-count${params}`),
+        apiFetch(`/api/mas/pending-count${params}`),
+        apiFetch(`/api/rfi/pending-count${params}`),
       ]);
 
       if (masRes.ok) {

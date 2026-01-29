@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Loader } from 'lucide-react';
 import Layout from '../components/Layout';
 import { auth } from '../lib/firebase';
+import { apiFetchJson } from '../lib/api';
 
 export default function RFIPage() {
   const [items, setItems] = useState([]);
@@ -23,11 +24,8 @@ export default function RFIPage() {
     try {
       setLoading(true);
       // Fetch all RFI items - in a real app, this would be filtered by user's projects
-      const response = await fetch('/api/rfi/project/1'); // For now, fetch from project 1
-      if (response.ok) {
-        const data = await response.json();
-        setItems(data);
-      }
+      const data = await apiFetchJson('/api/rfi/project/1'); // For now, fetch from project 1
+      setItems(data);
     } catch (err) {
       console.error('Error fetching RFI:', err);
       setError('Failed to load Requests for Information');
