@@ -217,7 +217,7 @@ function App() {
           <Route 
             path="/vendor-dashboard" 
             element={
-              user && userLevel === 'VENDOR' ? (
+              user && (userLevel === 'VENDOR' || userLevel === 'SUPER_ADMIN') ? (
                 <VendorDashboard />
               ) : (
                 <Navigate to="/" replace />
