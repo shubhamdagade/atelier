@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Loader } from 'lucide-react';
 import Layout from '../components/Layout';
 import ProjectCard from '../components/ProjectCard';
+import { apiFetchJson } from '../lib/api';
 
 export default function Dashboard() {
   const [projects, setProjects] = useState([]);
@@ -11,11 +12,7 @@ export default function Dashboard() {
   useEffect(() => {
     const fetchProjects = async () => {
       try {
-        const response = await fetch('/api/projects');
-        if (!response.ok) {
-          throw new Error('Failed to fetch projects');
-        }
-        const data = await response.json();
+        const data = await apiFetchJson('/api/projects');
         setProjects(data);
       } catch (err) {
         console.error('Error fetching projects:', err);

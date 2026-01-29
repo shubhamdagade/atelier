@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Layout from '../components/Layout';
 import { Loader, Plus } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { apiFetchJson } from '../lib/api';
 
 export default function VendorDashboard() {
   const [loading, setLoading] = useState(true);
@@ -17,15 +18,11 @@ export default function VendorDashboard() {
   async function fetchData() {
     try {
       setLoading(true);
-      const pRes = await fetch('/api/projects', { credentials: 'include' });
-      if (!pRes.ok) throw new Error('Failed to load projects');
-      const pData = await pRes.json();
+      const pData = await apiFetchJson('/api/projects');
       setProjects(pData);
 
       // Fetch MAS summary (counts grouped by project)
-      const sRes = await fetch('/api/mas/summary', { credentials: 'include' });
-      if (!sRes.ok) throw new Error('Failed to load MAS summary');
-      const sData = await sRes.json();
+      const sData = await apiFetchJson('/api/mas/summary');
 
       // Convert summary array to map by project id
       const map = {};
