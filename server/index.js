@@ -528,6 +528,27 @@ app.get('/api/mas/pending-count', async (req, res) => {
   }
 });
 
+// Get MAS summary grouped by project (pending/approved/total)
+app.get('/api/mas/summary', verifyToken, async (req, res) => {
+  try {
+    const text = `
+      SELECT
+        project_id,
+        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending_count,
+        SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) AS approved_count,
+        COUNT(*) AS total_count
+      FROM material_approval_sheets
+      GROUP BY project_id
+      ORDER BY project_id
+    `;
+    const result = await query(text);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching MAS summary:', error);
+    res.status(500).json({ error: 'Failed to fetch MAS summary' });
+  }
+});
+
 // Get RFI count
 app.get('/api/rfi/pending-count', async (req, res) => {
   try {

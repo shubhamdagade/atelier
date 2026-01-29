@@ -9,6 +9,7 @@ import L2Dashboard from './pages/L2Dashboard';
 import L3Dashboard from './pages/L3Dashboard';
 import L4Dashboard from './pages/L4Dashboard';
 import SuperAdminDashboard from './pages/SuperAdminDashboard';
+import VendorDashboard from './pages/VendorDashboard';
 import ProjectDetail from './pages/ProjectDetail';
 import ProjectInput from './pages/ProjectInput';
 import MASPage from './pages/MASPage';
@@ -76,6 +77,8 @@ function App() {
                 <Navigate to="/super-admin-dashboard" replace />
               ) : userLevel === 'L1' ? (
                 <Navigate to="/l1-dashboard" replace />
+              ) : userLevel === 'VENDOR' ? (
+                <Navigate to="/vendor-dashboard" replace />
               ) : (
                 <Navigate to="/l2-dashboard" replace />
               )
@@ -197,13 +200,25 @@ function App() {
         <Route 
           path="/mas" 
           element={
-            user && (userLevel === 'L2' || userLevel === 'L1' || userLevel === 'SUPER_ADMIN') ? (
+            user && (userLevel === 'L2' || userLevel === 'L1' || userLevel === 'SUPER_ADMIN' || userLevel === 'VENDOR') ? (
               <MASPage />
             ) : (
               <Navigate to="/" replace />
             )
           } 
         />
+        
+          {/* Vendor Dashboard */}
+          <Route 
+            path="/vendor-dashboard" 
+            element={
+              user && userLevel === 'VENDOR' ? (
+                <VendorDashboard />
+              ) : (
+                <Navigate to="/" replace />
+              )
+            }
+          />
 
         {/* RFI Page */}
         <Route 
