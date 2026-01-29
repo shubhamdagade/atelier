@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+/import { useState, useEffect } from 'react';
 import { Loader } from 'lucide-react';
 import Layout from '../components/Layout';
 import ProjectCard from '../components/ProjectCard';
